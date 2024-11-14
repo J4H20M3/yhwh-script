@@ -2,7 +2,7 @@
 import inquirer from 'inquirer';
 import { chdir, cwd } from 'node:process';
 import { join } from 'node:path';
-import { existsSync, mkdirSync, opendir, copyFileSync } from 'node:fs';
+import { existsSync, mkdirSync, opendir, cpSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
 const questions = [
@@ -10,20 +10,6 @@ const questions = [
         type: 'input',
         name: 'directory',
         message: 'In which directory do you want your project?'
-    },
-    {
-        type: 'input',
-        name: 'webcomponents',
-        message: 'In which subdirectory do you want your webcomponents?',
-        default() {
-            return 'webcomponents';
-        },
-    },
-    {
-        type: 'checkbox',
-        name: 'plugins',
-        message: 'Which plugins to install?',
-        choices: ['vite', 'store', 'sqlite', 'examples']
     }
 ];
 
@@ -38,27 +24,24 @@ inquirer.prompt(questions)
                 (err, dir) => {
                     if (err) {
                         console.log("Error:", err);
-                    }
-                    else {
-                        mkdirSync(join(dir.path, answers.webcomponents), { recursive: true });
+                    } else {
                         chdir(dir.path);
                         console.log("Initializing project...");
                         execSync('npm init -y');
+                        execSync(`npm pkg delete scripts.test`);
+                        execSync(`npm pkg set type=module`);
+
                         console.log("Copying files...");
-                        const templatePath = join(import.meta.dirname, '../templates', 'index.html.template');
-                        const targetPath = join(dir.path, 'index.html');
-                        copyFileSync(templatePath, targetPath);
-                        if (answers.plugins.includes('vite')) {
-                            console.log("Installing Vite...");
-                            execSync('npm install vite --save');
-                        }
-                        if (answers.plugins.includes('sqlite')) {
-                            console.log("Installing SQLite...");
-                            execSync('npm install sqlite --save');
-                        }
-                        if (answers.plugins.includes('examples')) {
-                            console.log("Installing examples...");
-                        }
+                        const defaultPath = join(import.meta.dirname, '../files');
+                        const targetPath = join(dir.path);
+                        cpSync(defaultPath, targetPath, { recursive: true });
+
+                        console.log("Installing Vite...");
+                        execSync(`npm install vite @vitejs/plugin-basic-ssl --save`);
+                        execSync(`npm pkg set scripts.gen="node gen.cjs" scripts.dev="npm run gen && vite" scripts.build="npm run gen && vite build" scripts.preview="npm run gen && vite preview"`);
+
+                        console.log("Installing SQLite...");
+                        execSync('npm install @sqlite.org/sqlite-wasm --save');
 
                         console.log("Closing the directory");
                         dir.closeSync();
